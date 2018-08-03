@@ -1,0 +1,71 @@
+---
+title: "Résultat de l'analyse de la vidéo"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, include=FALSE}
+#### A REMPLACER : ###
+
+dossier_code = "?/Taunique/Code/"
+dossier_results = "?/Taunique/results/"
+dossier_fit = "?/Taunique/Fit/" 
+
+######################
+```
+
+```{r, include=FALSE}
+# Importation des packages :
+require("knitr")
+require("mclust")
+require("Segmentor3IsBack")
+require("penaltyLearning")
+
+# Importation des fonctions :
+source(paste(dossier_code,"fusionsegmentor3.R", sep = ""))
+source(paste(dossier_code,"penaltylearning.R", sep = ""))
+source(paste(dossier_code,"analyse.R", sep = ""))
+```
+
+```{r, echo=FALSE}
+train_model = paste(dossier_fit,"training.rda", sep = "")
+test_data = paste(dossier_results,"results.csv", sep = "")
+
+if(!file.exists(train_model)){
+  train_data = paste(dossier_fit,"data.csv", sep = "")
+  train_ann = paste(dossier_fit,"ann.csv", sep = "")
+  err = Training(train_data, train_ann, kmax = 4)
+}
+
+list_k = Choix_k(test_data, train_model, kmax = 4)
+
+resultat1 = Calcul_SegmentsALL(test_data, list_k, kmax = 4, affichage = 0)
+resultat2 = FusionALL(test_data, affichage = 0, kmax = 4, ratio = 10)
+
+marches1 = Marches_coord(resultat1)
+marches2 = Marches_coord(resultat2)
+
+IC1 = Indice_confiance(marches1, resultat1)
+IC2 = Indice_confiance(marches2, resultat2)
+IC = pmax(IC1,IC2)
+
+resultat = resultat1
+resultat$nbmarches[IC1 < IC2,] = resultat2$nbmarches[IC1<IC2,]
+resultat$moymarches[IC1 < IC2,] = resultat2$moymarches[IC1<IC2,]
+resultat$absmarches[IC1 < IC2,] = resultat2$absmarches[IC1<IC2,]
+
+marches = Marches_coord(resultat)
+
+data = read.table(test_data, header=TRUE, sep = ",")
+data = data[,-1]
+
+# for(i in 1:length(data)){
+#   print(max(data[,i]))
+# }
+
+for(i in marches$absgraphes){
+  affiche_marche(resultat, data, marches, i, IC)
+}
+```
+
